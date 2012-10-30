@@ -113,7 +113,7 @@ socket.setdefaulttimeout(30)
 def main():
     """Parse options and launch main loop"""
     usage = "Usage: %prog [options] [article_token or pdf_directory]"
-    version = "3.0.2"
+    version = "3.0.5"
     description = """adsbibdesk helps you add astrophysics articles listed
 on NASA/ADS and arXiv.org to your BibDesk database. There are two modes
 in this command line interface:
@@ -156,6 +156,7 @@ the pdfs/ directory).
     else:
         process_articles(options, args)
 
+
 def process_articles(options, args):
     """Workflow for processing article tokens"""
     if len(args) == 1:
@@ -181,7 +182,7 @@ def process_articles(options, args):
 def process_token(articleToken, prefs, insertScript):
     """Process a single article token from the user.
     :param articleToken: Any user-supplied `str` token.
-    :param prefs": A `Preferences` instance.
+    :param prefs: A `Preferences` instance.
     :param insertScript: An `EmbeddedInsertionScript` instance.
     """
     # Determine what we're dealing with. The goal is to get a URL into ADS
@@ -204,13 +205,18 @@ def process_token(articleToken, prefs, insertScript):
                                                     ads.abstract, '|||',
                                                     ads.bibtex.__str__()]))
     # Escpe backslashes
-    output = output.replace('\\', '\\\\')
+    # output = output.replace('\\', '\\\\')
     # Escape double quotes
-    output = output.replace('"', '\\"')
-    cmd = 'osascript %s "%s"' % (insertScript.compiledPath, output)
+    # output = output.replace('"', '\\"')
+    f = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+    if prefs['debug']: print "payload in tmp file:", f.name
+    f.write(output)
+    f.close()
+    cmd = 'osascript %s "%s"' % (insertScript.compiledPath, f.name)
     if prefs['debug']:
         print cmd
     subprocess.call(cmd, shell=True)
+    os.remove(f.name)
 
 
 def ingest_pdfs(options, args):
@@ -318,9 +324,17 @@ class ADSConnector(object):
     
     def _is_bibcode(self):
         """Test if the token corresponds to an ADS bibcode or DOI"""
+
         self.adsURL = urlparse.urlunsplit(('http', self.prefs['ads_mirror'],
                                            'doi/%s' % self.token, '', ''))
-        return self._read(self.adsURL)
+        read =  self._read(self.adsURL)
+        if read: 
+            return read
+        else:
+            self.adsURL = urlparse.urlunsplit(('http', self.prefs['ads_mirror'],
+                                               'abs/%s' % self.token, '', ''))
+            read =  self._read(self.adsURL)
+            return read
 
     def _is_ads_page(self):
         """Test if the token is a url to an ADS abstract page"""
@@ -739,8 +753,8 @@ class EmbeddedInsertionScript(object):
     """
     def __init__(self):
         super(EmbeddedInsertionScript, self).__init__()
-        self._txtData = "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"
-        self.version = 1  # serializes the current version of this script
+        self._txtData = "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"
+        self.version = 2  # serializes the current version of this script
         self.compiledPath = os.path.expanduser(
                 "~/.adsbibdesk_injector_%i.scpt" % self.version)
 
