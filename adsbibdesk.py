@@ -207,7 +207,67 @@ class ADSHTMLParser(HTMLParser):
         return 'failed'
 
 
+<<<<<<< HEAD
 if __name__ == '__main__':
+=======
+        # article info
+        info = {}
+        for k,v in getc(xml.getchildren()[-1]):  # the last item is the article
+            if isinstance(v, dict):
+                info.setdefault(k, []).append(v)
+            else:
+                info[k] = v
+        return info
+
+    def bibtex(self, info):
+        """
+        Create BibTex entry. Sets a bunch of "attributes" that are used
+        explictly on __str__ as BibTex entries
+
+        :param info: parsed info dict from arXiv
+        """
+        self.Author = ' and '.join(['{%s}, %s' % (a['name'].split()[-1],
+                                                  '~'.join(a['name'].split()[:-1]))
+                                    for a in info['author']
+                                    if len(a['name'].strip()) > 1]).encode('utf-8')
+        self.Title = info['title'].encode('utf-8')
+        self.Abstract = info['summary'].encode('utf-8')
+        self.AdsComment = info['comment'].replace('"',"'").encode('utf-8') if 'comment' in info else ""
+        self.Jornal = 'ArXiv e-prints'
+        self.ArchivePrefix = 'arXiv'
+        self.ArXivURL = info['id']
+        self.Eprint = info['id'].split('abs/')[-1]
+        self.PrimaryClass = info['primary_category'][0]['term']
+        self.Year, self.Month = datetime.datetime.strptime(info['published'],
+                                                           '%Y-%m-%dT%H:%M:%SZ').strftime('%Y %b').split()
+
+    def __str__(self):
+        import string
+        return '@article{%s,\n' % self.Eprint +\
+               '\n'.join(['%s = {%s},' % (k,v)
+                          for k,v in
+                          sorted([(k, v.decode('utf-8'))
+                                  for k,v in self.__dict__.iteritems()
+                                  if k[0] in string.uppercase])]) +\
+               '}'
+
+
+class MNRASException(Exception):
+    pass
+
+
+class MNRASParser(HTMLParser):
+    """Handle MNRAS refereed article PDFs.
+
+    Unlike other journals, the ADS "Full Refereed Journal Article" URL for a
+    MNRAS article points to a PDF embedded in an iframe. This class extracts
+    the PDF url given the ADS link.
+    """
+    def __init__(self, prefs):
+        HTMLParser.__init__(self)
+        self.prefs = prefs
+        self.pdfURL = None
+>>>>>>> edf0d33... bugfix: arXiv postings don't necessarily have comments
 
     # ADS mirrors - the 1st one of the list will be used as your mirror
     adsmirrors = ['adsabs.harvard.edu',
