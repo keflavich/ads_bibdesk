@@ -666,15 +666,6 @@ def get_redirect(url):
                    
     """
     
-    #     if 'MNRAS' in url:
-    #         # MNRAS rejects requests from "non-browsers"
-    #         response = requests.get(url,
-    #                                 headers={'User-Agent':
-    #                                          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'})
-    #     else:
-    #         response = requests.get(url)
-    #response.raise_for_status()
-    #return response.url
     try:
         out = urlopen(url)
         red_url=out.geturl()
@@ -683,6 +674,15 @@ def get_redirect(url):
     if  'nature.com' in red_url:
         red_url=re.split('\?error=',red_url)[0]
     return red_url
+
+def get_mnras_redirect(url):
+    # MNRAS rejects requests from "non-browsers"
+    response = requests.get(url,
+                         headers={'User-Agent':
+                                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'})
+
+    response.raise_for_status()
+    return response.url
 
 
 class PDFDOIGrabber(object):
@@ -1360,8 +1360,13 @@ class ADSHTMLParser(HTMLParser):
             # Resolve URL
             try:
                 resolved_url = get_redirect(url)
+            except ConnectionError:
+                resolved_url = get_mnras_redirect(url)
             except requests.exceptions.HTTPError as ex:
                 resolved_url = None
+                print("Could not download from URL {0} because of error {1}"
+                      .format(url, ex))
+            except Exception as ex:
                 print("Could not download from URL {0} because of error {1}"
                       .format(url, ex))
 
