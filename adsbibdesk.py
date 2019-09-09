@@ -42,6 +42,8 @@ import tempfile
 import time
 import requests
 
+from requests.exceptions import HTTPError
+
 
 try:
     from string import uppercase
@@ -62,7 +64,7 @@ try:
     from urlparse import urlparse, urlsplit, urlunsplit
     from htmlentitydefs import name2codepoint
     from HTMLParser import HTMLParser
-    from HTMLParser import HTMLParseError    
+    from HTMLParser import HTMLParseError
 except ImportError:
     # Python 3
     from urllib.request import urlopen
@@ -78,7 +80,7 @@ except ImportError:
             pass
     basestring = str
     unichr = chr
-    
+
 import subprocess as sp
 try:
     import AppKit
@@ -344,7 +346,7 @@ def process_token(article_token, prefs, bibdesk):
     kept_pdfs = []
     kept_fields = {}
     kept_groups=[]
-    
+
     # first author is the same
     if  len(found)>0:
         if  found and difflib.SequenceMatcher(
@@ -663,9 +665,8 @@ def get_redirect(url):
         ads-article-link :
             MNRAS w/  Paywall:        redirect to the HTML page link + '?redirectedFrom=PDF'
             MNRAS w/o Paywall:        redirect to PDF
-                   
+
     """
-    
     try:
         out = urlopen(url)
         red_url=out.geturl()
@@ -833,8 +834,8 @@ class ADSConnector(object):
             response = requests.get(ads_url,
                             headers={'User-Agent':
                                      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 \
-                                     (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})                                    
-            
+                                     (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})
+
             response.raise_for_status()
             htmldata = response.text
             #htmldata = urllib2.urlopen(ads_url).read()
@@ -1089,17 +1090,17 @@ class BibDesk(object):
         """
         Get names of the static groups
         return a string list
-            output:      list        
+            output:      list
         """
         cmd="""
             tell first document of application "BibDesk"
-            set oldPub to ( get first publication whose id is "%s" ) 
-            set pGroups to ( get static groups whose publications contains oldPub ) 
+            set oldPub to ( get first publication whose id is "%s" )
+            set pGroups to ( get static groups whose publications contains oldPub )
             set GroupNames to {}
-            repeat with aGroup in pGroups 
+            repeat with aGroup in pGroups
                 copy (name of aGroup) to the end of GroupNames
             end repeat
-            return GroupNames 
+            return GroupNames
             end tell
         """ % (pid)
 
@@ -1109,7 +1110,7 @@ class BibDesk(object):
                   for i in range(output.numberOfItems())]
         logging.debug("check static groups: pid: %s; static group: %s" % (pid,output))
         return output
-    
+
     def add_groups(self,pid,groups):
         """
         add the publication into static groups
@@ -1184,7 +1185,7 @@ class ADSHTMLParser(HTMLParser):
             response = requests.get(url,
                             headers={'User-Agent':
                                      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 \
-                                     (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})  
+                                     (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})
             html_data = response.text
             #html_data = urllib2.urlopen(url).read()
         except Exception as ex:
@@ -1342,7 +1343,7 @@ class ADSHTMLParser(HTMLParser):
 
         # refereed
         if 'article' in self.links or 'ejournal' in self.links:
-            
+
             try:
                 # prefer "article":
                 #   most cases
@@ -1351,18 +1352,18 @@ class ADSHTMLParser(HTMLParser):
                 # fall back to "ejournal":
                 #   mnras.tmp, nature, etc.
                 url = self.links['ejournal']
-            
+
             if  'MNRAS' in url or 'Sci...' in url:
                 # always use the ejournal link for MNRAS/SCIENCE
                 # as the ARCTILE link is not always reliable.
                 url = self.links['ejournal']
-            
+
             # Resolve URL
             try:
                 resolved_url = get_redirect(url)
             except ConnectionError:
                 resolved_url = get_mnras_redirect(url)
-            except requests.exceptions.HTTPError as ex:
+            except HTTPError as ex:
                 resolved_url = None
                 print("Could not download from URL {0} because of error {1}"
                       .format(url, ex))
@@ -1371,7 +1372,7 @@ class ADSHTMLParser(HTMLParser):
                       .format(url, ex))
 
             if resolved_url is not None:
-                
+
                 logging.debug("Resolve article URL: %s" % resolved_url)
                 if "filetype=.pdf" in resolved_url:
                     # URL will directly resolve into a PDF
@@ -1392,12 +1393,12 @@ class ADSHTMLParser(HTMLParser):
                         pdf_url=pdf_url.replace('.org/doi/','.org/doi/pdf/')
                     if  'link.springer.com/book/' in pdf_url:
                         # a workaround because 'citation_pdf_url' is not available.
-                        pdf_url=pdf_url.replace('book','content/pdf')+'.pdf'                        
+                        pdf_url=pdf_url.replace('book','content/pdf')+'.pdf'
                     logging.debug("Resolve EJOURNAL PDF URL: %s" % pdf_url)
                 else:
                     pdf_url = resolved_url
-                
-                
+
+
                 # try locally
                 fd, pdf = tempfile.mkstemp(suffix='.pdf')
                 # test for HTTP auth need
@@ -1409,7 +1410,7 @@ class ADSHTMLParser(HTMLParser):
                                      (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})
                     os.fdopen(fd, 'wb').write(response.content)
                 except URLError as err:  # HTTPError derives from URLError
-                
+
                 #    response = requests.get(pdf_url)
                 #    pdf_bytes = response.content
                 #    os.fdopen(fd, 'wb').write(pdf_bytes)
@@ -1630,11 +1631,11 @@ class MNRASException(Exception):
 
 class MNRASParser(HTMLParser):
     """Handle MNRAS refereed article PDFs.
-    
+
     Unlike other journals, the ADS "Full Refereed Journal Article" URL for a
     MNRAS article points to a PDF embedded in an iframe. This class extracts
     the PDF url given the ADS link.
-    
+
     latest note: use this for all ejournal links
     """
     def __init__(self, prefs):
@@ -1648,7 +1649,7 @@ class MNRASParser(HTMLParser):
         try:
             # Detect and decode page's charset
             logging.debug("Parsing EJOURNAL url %s" % url)
-            
+
             #######
             #   requests is not always reliable. (javascript page?)
             ###
@@ -1657,7 +1658,7 @@ class MNRASParser(HTMLParser):
             #                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.36 \
             #                    (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36'})
             #self.feed(response.text)
-            
+
             connection = urlopen(url)
             if  hasattr(connection.headers,'getparam'):
                 # Python 2
