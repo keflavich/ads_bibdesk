@@ -189,6 +189,7 @@ updated if it has a new bibcode."""
     # inject options into preferences for later reference
     prefs['options'] = options.__dict__
     if options.debug:
+        print("Debug mode enabled")
         prefs['debug'] = True
 
     # Logging saves to log file on when in DEBUG mode
@@ -197,6 +198,10 @@ updated if it has a new bibcode."""
         level=logging.DEBUG,
         format='%(asctime)s %(name)s %(levelname)s %(message)s',
         filename=prefs['log_path'])
+
+    logger = logging.getLogger('')
+    logger.setLevel(logging.DEBUG)
+
     if not prefs['debug']:
         logging.getLogger('').setLevel(logging.INFO)
     ch = logging.StreamHandler()
@@ -784,6 +789,7 @@ class ADSConnector(object):
 
         :return: True if ADS page is recovered
         """
+        logging.debug("_is_arxiv")
         arxiv_pattern = re.compile('(\d{4,6}\.\d{4,6}|astro\-ph/\d{7})')
         arxiv_matches = arxiv_pattern.findall(self.token)
         if len(arxiv_matches) == 1:
@@ -800,6 +806,7 @@ class ADSConnector(object):
 
     def _is_bibcode(self):
         """Test if the token corresponds to an ADS bibcode or DOI"""
+        logging.debug("_is_bibcode")
         self.ads_url = urlunsplit((
             'http', self.prefs['ads_mirror'],
             'doi/%s' % self.token, '', ''))
@@ -807,14 +814,18 @@ class ADSConnector(object):
         if read:
             return read
         else:
-            self.ads_url = urlunsplit((
-                'http',
-                self.prefs['ads_mirror'], 'abs/%s' % self.token, '', ''))
+            logging.debug("{0} is not a DOI".format(self.token))
+            self.ads_url = urlunsplit(( 'http', self.prefs['ads_mirror'], 'abs/%s' % self.token, '', ''))
             read = self._read(self.ads_url)
+            if read:
+                logging.debug("{0} is a bibcode".format(self.token))
+            else:
+                logging.debug("{0} is not a bibcode".format(self.token))
             return read
 
     def _is_ads_page(self):
         """Test if the token is a url to an ADS abstract page"""
+        logging.debug("_is_ads_page")
         # use our ADS mirror
         url = self.url_parts
         self.ads_url = urlunsplit((
